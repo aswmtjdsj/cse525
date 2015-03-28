@@ -9,11 +9,12 @@ class Car:
     def __init__(self):
         self.brick = nxt.find_one_brick()
         self.motors = [nxt.Motor(self.brick, nxt.PORT_A), nxt.Motor(self.brick, nxt.PORT_B)]
-        self.colorSensor = Colorv2(self.brick, PORT_1)
+        #self.colorSensors = [Colorv2(self.brick, PORT_1)]
+        self.colorSensors = [Colorv2(self.brick, PORT_1), Colorv2(self.brick, PORT_4)]
         self.previousColor = ''
 
-    def getCurrentColor(self):
-        value = self.colorSensor.get_sample()
+    def getCurrentColor(self, cSensor):
+        value = cSensor.get_sample()
 
         # print 'number: ', value.number,
         # print ', red: ', value.red,
@@ -49,7 +50,7 @@ class Car:
             mRight.turn(-60, 100)
 
 
-    def moveOneStep(self, power = 60, direction = 1, runTime = 0.5):       # move forward or backward
+    def moveOneStep(self, power = 70, direction = 1, runTime = 0.15):       # move forward or backward
         scale = (1 if direction == 1 else -1)
         self.motors[0].run(scale * power)
         self.motors[1].run(scale * power)
@@ -62,10 +63,9 @@ class Car:
         for motor in self.motors:
             motor.brake()
 
-    def followBlackwithOneSensor(self):
-        finished = False
-        while not finished:
-            currentColor = self.getCurrentColor()
+    def followBlackWithOneSensor(self):
+        while 1:
+            currentColor = self.getCurrentColor(self.colorSensors[0])
             print currentColor
             if currentColor == 'black':
                 self.moveRightLeg()
@@ -74,6 +74,27 @@ class Car:
             elif currentColor == 'red':
                 print 'destination reached'
                 return
+            time.sleep(0.1)
+
+    def followBlackWithTwoSensors(self):
+        leftColorSensor = self.colorSensors[0]
+        rightColorSensor = self.colorSensors[1]
+
+        while 1:
+            leftColor = self.getCurrentColor(leftColorSensor)
+            rightColor = self.getCurrentColor(rightColorSensor)
+            print leftColor + ' : ' + rightColor
+            # if leftColor == 'red' or rightColor == 'red'
+            #     print 'goal reached'
+            #     return
+            if leftColor == 'white' and rightColor == 'white':
+                self.moveOneStep()
+            elif leftColor == 'black' and rightColor == 'white':
+                self.stop()
+                self.moveRightLeg()
+            elif leftColor == 'white' and leftColor == 'black':
+                self.stop()
+                self.moveLeftLeg()
             time.sleep(0.1)
 
 

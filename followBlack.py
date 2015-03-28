@@ -2,7 +2,9 @@ __author__ = 'zephyryin'
 from baseClass import *
 
 rangeRover = Car()
-rangeRover.followBlackwithOneSensor()
+rangeRover.followBlackWithTwoSensors()
+#rangeRover.followBlackWithOneSensor()
+
 # currentColor = rangeRover.getCurrentColor()
 # if currentColor == 'red':
 #     rangeRover.followBlack()
