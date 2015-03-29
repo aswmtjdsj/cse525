@@ -1,0 +1,14 @@
+turnRight:1.408506
+turnLeft:0.041228
+turnRight:1.053622
+turnLeft:0.042588
+turnLeft:0.238207
+turnRight:0.044145
+turnRight:4.358983
+turnRight:4.069692
+turnRight:4.359854
+turnRight:0.040905
+turnLeft:0.055989
+turnRight:0.295783
+turnRight:0.307459
+turnLeft:0.042139

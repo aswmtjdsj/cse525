@@ -12,49 +12,46 @@ class Car:
         #self.colorSensors = [Colorv2(self.brick, PORT_1)]
         self.colorSensors = [Colorv2(self.brick, PORT_1), Colorv2(self.brick, PORT_4)]
         self.previousColor = ''
-        self.log = []
-        self.minimumPower = 70
+        self.decisionLog = []           # record each move
+        self.turnLog = []               # record each corner
+        self.minimumPower = 64
         self.stepTime = 0.1
 
-    def getCurrentColor(self, cSensor):
-        value = cSensor.get_sample()
+    def getCurrentColor(self):
+        colors = []
+        for colorSensor in self.colorSensors:
 
-        # print 'number: ', value.number,
-        # print ', red: ', value.red,
-        # print ', green: ', value.green,
-        # print ', blue: ', value.blue,
-        # print ', white: ', value.white,
-        # print ', index: ', value.index,
-        # print ', |red|: ', value.normred,
-        # print ', |green|: ', value.normgreen,
-        # print ', |blue|: ', value.normblue
+            value = colorSensor.get_sample()
 
-        if value.white > 150:
-            return 'white'
-        elif value.red < 50 and value.green < 50 and value.blue < 50:
-            return 'black'
-        elif value.normred == 255:
-            return 'red'
-        else:
-            return 'otherColor'
-    #
-    # def move(self, power = 60, direction = 1):       # move forward or backward
-    #     scale = (1 if direction == 1 else -1)
-    #     self.motors[0].run(scale * power)
-    #     self.motors[1].run(scale * power)
-    #
-    # def turn(self, direction):
-    #     mLeft = self.motors[0]
-    #     mRight = self.motors[1]
-    #     if direction == 'W':
-    #         mLeft.turn(60, 100)
-    #         mLeft.turn(-60, 100)
-    #         mRight.turn(60, 100)
-    #         mRight.turn(-60, 100)
+            # print 'number: ', value.number,
+            # print ', red: ', value.red,
+            # print ', green: ', value.green,
+            # print ', blue: ', value.blue,
+            # print ', white: ', value.white,
+            # print ', index: ', value.index,
+            # print ', |red|: ', value.normred,
+            # print ', |green|: ', value.normgreen,
+            # print ', |blue|: ', value.normblue
+
+            if value.white > 200 and value.normred > 200 and value.normgreen > 200 and value.normblue > 200:
+                colors.append('white')
+            elif value.normred == 255 and value.normgreen < 100 and value.normblue < 100:
+                colors.append('red')
+            elif value.red < 50 and value.green < 50 and value.blue < 50:
+                colors.append('black')
+            else:
+                colors.append('black')
+        return colors
+
+    def move(self, power = 70, direction = 1):       # move forward or backward
+        scale = (1 if direction == 1 else -1)
+        self.motors[0].run(scale * power)
+        self.motors[1].run(scale * power)
 
     def followBlackWithOneSensor(self):
         while 1:
-            currentColor = self.getCurrentColor(self.colorSensors[0])
+            colors = self.getCurrentColor()
+            currentColor = colors[0]
             print currentColor
             if currentColor == 'black':
                 self.stepRight()
@@ -66,44 +63,57 @@ class Car:
             time.sleep(0.1)
 
     def followBlackWithTwoSensors(self):
-        leftColorSensor = self.colorSensors[0]
-        rightColorSensor = self.colorSensors[1]
 
-        file = open('log.txt','w')
+        decisionFile = open('decisionLog.txt','w')
+        mapFile = open('turnLog.txt', 'w')
+        startTime = time.clock()
         while 1:
-            leftColor = self.getCurrentColor(leftColorSensor)
-            rightColor = self.getCurrentColor(rightColorSensor)
+            colors = self.getCurrentColor()
+            leftColor = colors[0]
+            rightColor = colors[1]
             print leftColor + ' : ' + rightColor
             if leftColor == 'red' or rightColor == 'red':
+                self.stop()
+                self.decisionLog.append('end')
                 print 'goal reached'
                 return
             elif leftColor == 'white' and rightColor == 'white':
-                self.moveOneStep()
-                self.log.append('move')
+                #self.moveOneStep()
+                self.move(63)
+                self.decisionLog.append('move')
             elif leftColor == 'black' and rightColor == 'white':
                 self.stop()
-                if len(self.log) >= 2 and self.log[-1] == 'right' and self.log[-2] == 'right':      # make a huge turn at the conner
+                if len(self.decisionLog) >= 2 and self.decisionLog[-1] == 'right' and self.decisionLog[-2] == 'right':      # make a huge turn at the conner
                     self.turnRight()
-                    self.log.pop()
-                    self.log.pop()
-                    self.log.append('turnRight')
+                    self.decisionLog.append('turnRight')
+                    elapsed = time.clock() - startTime
+                    startTime = time.clock()
+                    mapFile.write('turnRight:' + str(elapsed) + '\n')
                 else:
                     self.stepRight()
-                    self.log.append('right')
+                    self.decisionLog.append('right')
             elif leftColor == 'white' and rightColor == 'black':
                 self.stop()
-                if len(self.log) >= 2 and self.log[-1] == 'left' and self.log[-2] == 'left':        # make a huge turn at the conner
-                    self.log.pop()
-                    self.log.pop()
-                    self.log.append('turnLeft')
-                    self.turnRight()
+                if len(self.decisionLog) >= 2 and self.decisionLog[-1] == 'left' and self.decisionLog[-2] == 'left':        # make a huge turn at the conner
+                    self.turnLeft()
+                    self.decisionLog.append('turnLeft')
+                    elapsed = time.clock() - startTime
+                    startTime = time.clock()
+                    mapFile.write('turnLeft:' + str(elapsed) + '\n')
                 else:
                     self.stepLeft()
-                    self.log.append('left')
-            time.sleep(0.1)                 # hold for a moment after each move
-            file.write(str(self.log))
-            file.write('\n')
-        file.close()
+                    self.decisionLog.append('left')
+            elif leftColor == 'black' and rightColor == 'black':
+                self.stop()
+                self.moveOneStep()
+            else:
+                self.stop()
+                print 'condition unhandled'
+                break
+            decisionFile.write(str(self.decisionLog[-1] + '\n'))
+            #time.sleep(0.1)                 # hold for a moment after each move
+        decisionFile.close()
+        mapFile.close()
 
 
     def stepRight(self, direction = 1, power = 70, runTime = 0.1):
@@ -141,7 +151,7 @@ class Car:
 
     def turnLeft(self, degrees = 250):
         self.stepRight(-1)
-        leftMotor = self.motors[1]
+        leftMotor = self.motors[0]
         leftMotor.turn(self.minimumPower, degrees)
 
 
@@ -150,17 +160,32 @@ class Car:
 
     def createPath(self):
         path = []
-        for i in range(len(self.log)):
-            if len(path) == 0 or self.log[i] == 'move':
-                path.append(self.log[i])
+        for i in range(len(self.decisionLog)):
+            if len(path) == 0 or self.decisionLog[i] == 'move':
+                path.append(self.decisionLog[i])
                 continue
-            if self.log[i] == 'left':
+            if self.decisionLog[i] == 'left':
                 if path[-1] == 'right':
                     path.pop()
                     path.append('move')
                 elif path[-1] == 'left':
                     pass
 
+    def consistence(self):
+        while 1:
+            colors = self.getCurrentColor()
+            leftColor = colors[0]
+            rightColor = colors[1]
+            if leftColor == 'white' and rightColor == 'white':
+                self.move()
+            elif leftColor == 'black' and rightColor == 'white':
+                self.stop()
+                self.stepRight()
+                self.move()
+            elif leftColor == 'white' and rightColor == 'black':
+                self.stop()
+                self.stepLeft()
+                self.move()
     #
     # def adjustDirection(self, power = 60):
     #     found = False

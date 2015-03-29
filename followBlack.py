@@ -2,14 +2,13 @@ __author__ = 'zephyryin'
 from baseClass import *
 
 rangeRover = Car()
-
-# mleft = rangeRover.motors[1]
-# mleft.run(90)
-# time.sleep(1)
-# mleft.brake()
-#rangeRover.followBlackWithTwoSensors()
+rangeRover.followBlackWithTwoSensors()
 # #rangeRover.followBlackWithOneSensor()
-#
+
+
+
+
+
 # # currentColor = rangeRover.getCurrentColor()
 # # if currentColor == 'red':
 # #     rangeRover.followBlack()
@@ -24,4 +23,8 @@ rangeRover = Car()
 #         break
 
 
+# while 1:
+#     colors = rangeRover.getCurrentColor()
+#     print colors[0]
+#     time.sleep(2)
 
