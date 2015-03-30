@@ -45,27 +45,12 @@ if __name__ == '__main__':
     turn_time = 0.1
     detect_time = 0.01
 
+    def stop():
+        motor[0].brake()
+        motor[1].brake()
+
     def self_turn(direction, power, period):
-        # motor[0].run(direction * power)
         motor[1].run(direction * power)
-        # time.sleep(period)
-        # motor[0].brake()
-        # motor[1].brake()
-
-    # def turn_right(direction, power, period):
-    def turn_right(power, period):
-        motor[0].run(power)
-        time.sleep(period)
-        motor[0].brake()
-        motor[1].brake()
-
-    # def turn_left(direction, power, period):
-    def turn_left(power, period):
-        # motor[1].run(direction * power)
-        motor[1].run(power)
-        time.sleep(period)
-        motor[0].brake()
-        motor[1].brake()
 
     def try_and_turn(direction, power, period, limit):
         """
@@ -75,19 +60,32 @@ if __name__ == '__main__':
         
         first_dir = -1 if direction == False else 1
         second_dir = 1 if direction == False else -1
-        for i in range(limit): 
-            if get_sensor_rgb(sensors[0]) == 'black':
+        for i in range(limit): # one dire
+            if get_sensor_rgb(sensors[0]) == 'black' or get_sensor_rgb(sensors[0]) == 'red':
+                stop()
                 return (i+1) * first_dir
             self_turn(first_dir, power, period)
-        motor[0].brake()
-        motor[1].brake()
+        # stop()
 
-        for i in range(limit):
-            if get_sensor_rgb(sensors[0]) == 'black':
+        for i in range(limit): # back and the other dir
+            if get_sensor_rgb(sensors[0]) == 'black' or get_sensor_rgb(sensors[0]) == 'red':
+                stop()
                 return (i+1) * second_dir
             self_turn(second_dir, power, period)
-        motor[0].brake()
-        motor[1].brake()
+        stop()
+        for i in range(limit): # back and the other dir
+            if get_sensor_rgb(sensors[0]) == 'black' or get_sensor_rgb(sensors[0]) == 'red':
+                stop()
+                return (i+limit+1) * second_dir
+            self_turn(second_dir, power, period)
+        # stop()
+
+        for i in range(limit): # one dire more
+            if get_sensor_rgb(sensors[0]) == 'black' or get_sensor_rgb(sensors[0]) == 'red':
+                stop()
+                return (i+1) * first_dir
+            self_turn(first_dir, power, period)
+        stop()
 
         return None
 
@@ -96,9 +94,6 @@ if __name__ == '__main__':
         print "move {0}".format("backward" if direction == 0 else "forward")
         motor[0].run(scale * power)
         motor[1].run(scale * power)
-        time.sleep(run_time)
-        motor[0].brake()
-        motor[1].brake()
 
     count = 0
     running = True
@@ -112,41 +107,35 @@ if __name__ == '__main__':
         color = get_sensor_rgb(sensors[0])
         print 'update_limit: ', update_limit
         print 0, color
-        # print 1, get_sensor_rgb(sensors[1])
         if color == 'red':
+            stop()
             print 'red and exit'
             break
         elif color == 'black':
             try_number = 0
             print 'black and go'
             if turned == True:
-                move(move_power, 0.05 / 2., 1)
+                move(move_power, 0.01, 1)
             else:
                 move(move_power, 0.05, 1)
             turned = False
         elif color == 'white':
+            stop()
             turn = try_and_turn(True, detect_power, detect_time, update_limit)
             print 'turn', turn
             if turn != None:
                 update_limit = 5
-                if turn > 1:
-                    turn_right(80, 0.01 * abs(turn))
-                else:
-                    turn_left(80, 0.01 * abs(turn))
                 turned = True
                 turn = None
             else:
                 update_limit += update_step
             print 'white and turn'
         else:
+            stop()
             turn = try_and_turn(False, detect_power, detect_time, update_limit)
             print 'turn', turn
             if turn != None:
                 update_limit = 5
-                if turn > 1:
-                    turn_right(80, 0.01 * abs(turn))
-                else:
-                    turn_left(80, 0.01 * abs(turn))
                 turned = True
                 turn = None
             else:
