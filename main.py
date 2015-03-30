@@ -3,8 +3,8 @@ from nxt.sensor import *
 from nxt.sensor.hitechnic import *
 
 def get_sensor_rgb(color_sensor):
-    value = color_v2.get_sample()
-    if color_v2.debug == True:
+    value = color_sensor.get_sample()
+    if color_sensor.debug == True:
         print 'number: ', value.number,
         print ', red: ', value.red,
         print ', green: ', value.green,
@@ -36,8 +36,9 @@ if __name__ == '__main__':
     # light = Light(brick, PORT_1)
     # color = Color20(brick, PORT_1)
     # color sensor v2
-    color_v2 = Colorv2(brick, PORT_1)
-    color_v2.debug = False
+    sensors = [Colorv2(brick, PORT_1), Colorv2(brick, PORT_4)]
+    sensors[0].debug = False
+    sensors[1].debug = False
     move_power = 100
     turn_power = 70
     move_time = 0.2
@@ -65,28 +66,38 @@ if __name__ == '__main__':
             print 'wrong direction'
 
     count = 0
-    while 1:
+    running = True
+    while running:
         # sense
         # light.set_illuminated(False)
         # print 'light: ', light.get_sample()
         # print 'light color: ', color.get_light_color()
         # print 'reflected light: ', color.get_reflected_light(Type.COLORRED)
         # print 'color: ', color.get_color()
-        color_v = get_sensor_rgb(color_v2)
-        time.sleep(0.5)
-        if rgb_is_black(color_v) == True:
-            print 'black'
-        elif rgb_is_white(color_v) == True:
-            print 'white'
-        elif rgb_is_red(color_v) == True:
-            print 'red and exit'
-            break
-        else:
-            print 'other'
+        count += 1
 
         # run
-        move(move_power, move_time, count % 2)
-        count += 1
+        move(100, 0.2, 1)
+        for i in range(10):
+            motor[0].run(-80)
+            motor[1].run(80)
+            time.sleep(0.05)
+            motor[0].brake()
+            motor[1].brake()
+
+        for i, sensor in enumerate(sensors):
+            color = get_sensor_rgb(sensor)
+            time.sleep(0.5)
+            print i, 
+            if rgb_is_black(color) == True:
+                print 'black'
+            elif rgb_is_white(color) == True:
+                print 'white'
+            elif rgb_is_red(color) == True:
+                print 'red and exit'
+                running = False
+            else:
+                print 'other'
 
         # # turn
         # m_id = random.randint(0, 1)
