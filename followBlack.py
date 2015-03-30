@@ -2,29 +2,25 @@ __author__ = 'zephyryin'
 from baseClass import *
 
 rangeRover = Car()
-rangeRover.followBlackWithTwoSensors()
-# #rangeRover.followBlackWithOneSensor()
+while 1:
 
-
-
-
-
-# # currentColor = rangeRover.getCurrentColor()
-# # if currentColor == 'red':
-# #     rangeRover.followBlack()
-# # else:
-# #     print 'please calibrate'
-#
-# while 1:
-#     cmd = raw_input()
-#     if cmd == 'draw':
-#         print cmd
-#         rangeRover.drawMap()
-#         break
-
-
-# while 1:
-#     colors = rangeRover.getCurrentColor()
-#     print colors[0]
-#     time.sleep(2)
+    print '     start with 1 sensor :   1'
+    print '     start with 2 sensor :   2'
+    print '     draw map            :   3'
+    print '     quit                :   4'
+    print 'please input cmd:'
+    cmd = raw_input()
+    if cmd == '1':
+        rangeRover.followBlackWithOneSensor()
+    elif cmd == '2':
+        rangeRover.followBlackWithTwoSensors()
+    elif cmd == '3':
+        if len(rangeRover.turnLog) == 0:
+            rangeRover.readTurnFromLog()
+        rangeRover.drawMap()
+    elif cmd == '4':
+        break
+    else:
+        print 'error command'
+        continue
 
