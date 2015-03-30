@@ -1,7 +1,0 @@
-turnLeft:0.116306
-turnRight:0.275449
-turnRight:0.13913
-turnLeft:1.21169
-turnLeft:1.157132
-turnRight:0.374362
-turnRight:0.10666

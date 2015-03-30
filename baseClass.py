@@ -14,8 +14,11 @@ class Car:
         self.previousColor = ''
         self.decisionLog = []           # record each move
         self.turnLog = []               # record each corner
-        self.minimumPower = 64
+        self.runPower = 70
         self.stepTime = 0.1
+        self.penAxis = 'rightMotor'
+        self.turnLogFileName = 'turnLog.txt'
+        self.decisionLogFileName = 'decisionLog.txt'
 
     def getCurrentColor(self):
         colors = []
@@ -54,18 +57,15 @@ class Car:
             currentColor = colors[0]
             print currentColor
             if currentColor == 'black':
-                self.stepRight()
+                self.rightMotorStep()
             elif currentColor == 'white':
-                self.stepLeft()
+                self.leftMotorStep()
             elif currentColor == 'red':
                 print 'destination reached'
                 return
             time.sleep(0.1)
 
     def followBlackWithTwoSensors(self):
-
-        decisionFile = open('decisionLog.txt','w')
-        mapFile = open('turnLog.txt', 'w')
         startTime = time.clock()
         while 1:
             colors = self.getCurrentColor()
@@ -79,30 +79,34 @@ class Car:
                 return
             elif leftColor == 'white' and rightColor == 'white':
                 #self.moveOneStep()
-                self.move(63)
+                self.move(self.runPower)
                 self.decisionLog.append('move')
-            elif leftColor == 'black' and rightColor == 'white':
-                self.stop()
-                if len(self.decisionLog) >= 2 and self.decisionLog[-1] == 'right' and self.decisionLog[-2] == 'right':      # make a huge turn at the conner
-                    self.turnRight()
-                    self.decisionLog.append('turnRight')
-                    elapsed = time.clock() - startTime
-                    startTime = time.clock()
-                    mapFile.write('turnRight:' + str(elapsed) + '\n')
-                else:
-                    self.stepRight()
-                    self.decisionLog.append('right')
             elif leftColor == 'white' and rightColor == 'black':
                 self.stop()
-                if len(self.decisionLog) >= 2 and self.decisionLog[-1] == 'left' and self.decisionLog[-2] == 'left':        # make a huge turn at the conner
-                    self.turnLeft()
-                    self.decisionLog.append('turnLeft')
+                if len(self.decisionLog) >= 2 and self.decisionLog[-1] == 'right' and self.decisionLog[-2] == 'right':      # make a huge turn at the conner
+                    self.turnRight(70)
+                    self.decisionLog.append('right')
                     elapsed = time.clock() - startTime
                     startTime = time.clock()
-                    mapFile.write('turnLeft:' + str(elapsed) + '\n')
+                    if elapsed > 0.1:
+                        self.turnLog.append((elapsed, 'turnRight'))
                 else:
-                    self.stepLeft()
+                    self.leftMotorStep()
+                    self.decisionLog.append('right')
+                time.sleep(0.1)
+            elif leftColor == 'black' and rightColor == 'white':
+                self.stop()
+                if len(self.decisionLog) >= 2 and self.decisionLog[-1] == 'left' and self.decisionLog[-2] == 'left':        # make a huge turn at the conner
+                    self.turnLeft(70)
                     self.decisionLog.append('left')
+                    elapsed = time.clock() - startTime
+                    startTime = time.clock()
+                    if elapsed > 0.1:
+                        self.turnLog.append((elapsed, 'turnLeft'))
+                else:
+                    self.rightMotorStep()
+                    self.decisionLog.append('left')
+                time.sleep(0.1)
             elif leftColor == 'black' and rightColor == 'black':
                 self.stop()
                 self.moveOneStep()
@@ -110,13 +114,11 @@ class Car:
                 self.stop()
                 print 'condition unhandled'
                 break
-            decisionFile.write(str(self.decisionLog[-1] + '\n'))
             #time.sleep(0.1)                 # hold for a moment after each move
-        decisionFile.close()
-        mapFile.close()
+        self.saveLog()
 
 
-    def stepRight(self, direction = 1, power = 70, runTime = 0.1):
+    def rightMotorStep(self, direction = 1, power = 70, runTime = 0.2):
         scale = (1 if direction == 1 else -1)
         mRight = self.motors[1]
         mRight.run(power * scale)
@@ -124,7 +126,7 @@ class Car:
         mRight.brake()
 
 
-    def stepLeft(self, direction = 1, power = 70, runTime = 0.1):
+    def leftMotorStep(self, direction = 1, power = 70, runTime = 0.2):
         scale = (1 if direction == 1 else -1)
         mleft = self.motors[0]
         mleft.run(power * scale)
@@ -144,81 +146,71 @@ class Car:
         for motor in self.motors:
             motor.brake()
 
-    def turnRight(self, degrees = 250):
-        self.stepLeft(-1)
-        rightMotor = self.motors[1]
-        rightMotor.turn(self.minimumPower, degrees)
-
     def turnLeft(self, degrees = 250):
-        self.stepRight(-1)
         leftMotor = self.motors[0]
-        leftMotor.turn(self.minimumPower, degrees)
+        rightMotor = self.motors[1]
+        leftMotor.turn(-1 * self.runPower, degrees)
+        rightMotor.turn(self.runPower, degrees)
 
 
-    def drawMap(self):
-        pass
+    def turnRight(self, degrees = 250):
+        leftMotor = self.motors[0]
+        rightMotor = self.motors[1]
+        rightMotor.turn(-1 * self.runPower, degrees)
+        leftMotor.turn(self.runPower, degrees)
 
-    def createPath(self):
-        path = []
-        for i in range(len(self.decisionLog)):
-            if len(path) == 0 or self.decisionLog[i] == 'move':
-                path.append(self.decisionLog[i])
-                continue
-            if self.decisionLog[i] == 'left':
-                if path[-1] == 'right':
-                    path.pop()
-                    path.append('move')
-                elif path[-1] == 'left':
-                    pass
 
-    def consistence(self):
-        while 1:
-            colors = self.getCurrentColor()
-            leftColor = colors[0]
-            rightColor = colors[1]
-            if leftColor == 'white' and rightColor == 'white':
-                self.move()
-            elif leftColor == 'black' and rightColor == 'white':
-                self.stop()
-                self.stepRight()
-                self.move()
-            elif leftColor == 'white' and rightColor == 'black':
-                self.stop()
-                self.stepLeft()
-                self.move()
-    #
-    # def adjustDirection(self, power = 60):
-    #     found = False
-    #     mLeft = self.motors[0]
-    #     mRight = self.motors[1]
-    #     degree = 20
-    #     while degree < 360:
-    #         mLeft.turn(power, degree)           # try left
-    #         time.sleep(0.5)
-    #         if self.getCurrentColor() == 'black':
-    #             self.previousColor = 'black'
-    #             return
-    #         mLeft.turn(-power, degree)          # go back
-    #
-    #         mRight.turn(power, degree)          # try right
-    #         time.sleep(0.5)
-    #         if self.getCurrentColor() == 'black':
-    #             self.previousColor = 'black'
-    #             return
-    #         mRight.turn(-power, degree)         # go back
-    #         degree += 20
-    #
-    # def followBlackwithOneSensor(self):
-    #     finished = False
-    #     while not finished:
-    #         currentColor = self.getCurrentColor()
-    #         if currentColor == 'black' and self.previousColor == 'black' or self.previousColor == '':
-    #             self.move()
-    #         else:
-    #             self.stop()
-    #             self.adjustDirection()
-    #             continue
-    #         self.previousColor = currentColor
+    def drawMap(self, scale = 1.0 ):
+        for log in self.turnLog:
+            runTime = log[0]
+            print runTime*scale
+            action = log[1]
+            self.move()
+            time.sleep(runTime*scale)
+            self.stop()
+            print action
+            self.turnWithAxis(300, action, self.penAxis)
+            #time.sleep(1)
+        print 'draw map finished'
+
+    def turnWithAxis(self, degrees, action, axis):
+        leftMotor = self.motors[0]
+        rightMotor = self.motors[1]
+        if axis == 'rightMotor':
+            if action == 'turnLeft':
+                leftMotor.turn(-1 * self.runPower, degrees)
+            elif action == 'turnRight':
+                leftMotor.turn(self.runPower,degrees)
+        elif axis == 'leftMotor':
+            if action == 'turnLeft':
+                rightMotor.turn(self.runPower, degrees)
+            elif action == 'turnRight':
+                rightMotor.turn(-1 * self.runPower, degrees)
+        else:
+            print 'command error'
+
+    def readTurnFromLog(self):
+        file = open(self.turnLogFileName)
+        lines = file.readlines()
+        self.turnLog = []
+        for line in lines:
+            temp = line.split(':')
+            runTime = float(temp[0])
+            action = temp[1]
+            action = action.strip('\n')
+            self.turnLog.append((runTime, action))
+        file.close()
+
+    def saveLog(self):
+        file = open(self.decisionLogFileName, 'w')
+        for log in self.decisionLog:
+            file.write(log + '\n')
+        file.close()
+        file = open(self.turnLogFileName, 'w')
+        for log in self.turnLog:
+            file.write(str(log[0]) + ':' + log[1] + '\n')
+        file.close()
+
 
 
 
