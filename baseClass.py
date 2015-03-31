@@ -11,39 +11,45 @@ class Car:
         self.motors = [nxt.Motor(self.brick, nxt.PORT_A), nxt.Motor(self.brick, nxt.PORT_B)]
         #self.colorSensors = [Colorv2(self.brick, PORT_1)]
         self.colorSensors = [Colorv2(self.brick, PORT_1), Colorv2(self.brick, PORT_4)]
-        self.previousColor = ''
+        self.colorLog = [('white','white')]
         self.decisionLog = []           # record each move
         self.turnLog = []               # record each corner
         self.runPower = 70
+        self.turnPower = 70
+        self.bigTurnDegree = 70         # 70
         self.stepTime = 0.1
-        self.penAxis = 'rightMotor'
+        self.minimumElapse = 0.2
+        self.penAxis = 'leftMotor'
         self.turnLogFileName = 'turnLog.txt'
         self.decisionLogFileName = 'decisionLog.txt'
 
-    def getCurrentColor(self):
+    def getCurrentColor(self, degbug = False):
         colors = []
         for colorSensor in self.colorSensors:
 
             value = colorSensor.get_sample()
+            if degbug:
+                print 'number: ', value.number,
+                print ', red: ', value.red,
+                print ', green: ', value.green,
+                print ', blue: ', value.blue,
+                print ', white: ', value.white,
+                print ', index: ', value.index,
+                print ', |red|: ', value.normred,
+                print ', |green|: ', value.normgreen,
+                print ', |blue|: ', value.normblue
 
-            # print 'number: ', value.number,
-            # print ', red: ', value.red,
-            # print ', green: ', value.green,
-            # print ', blue: ', value.blue,
-            # print ', white: ', value.white,
-            # print ', index: ', value.index,
-            # print ', |red|: ', value.normred,
-            # print ', |green|: ', value.normgreen,
-            # print ', |blue|: ', value.normblue
+            whiteThreshold = 200
+            blackthreshold = 50
 
-            if value.white > 200 and value.normred > 200 and value.normgreen > 200 and value.normblue > 200:
+            if value.white > whiteThreshold and value.red > whiteThreshold and value.green > whiteThreshold and value.blue > whiteThreshold:
                 colors.append('white')
             elif value.normred == 255 and value.normgreen < 100 and value.normblue < 100:
                 colors.append('red')
-            elif value.red < 50 and value.green < 50 and value.blue < 50:
+            elif value.red < blackthreshold and value.green < blackthreshold and value.blue < blackthreshold:
                 colors.append('black')
             else:
-                colors.append('black')
+                colors.append('white')
         return colors
 
     def move(self, power = 70, direction = 1):       # move forward or backward
@@ -67,58 +73,86 @@ class Car:
 
     def followBlackWithTwoSensors(self):
         startTime = time.clock()
+        self.decisionLog = []
+        self.turnLog = []
+        leftMortor = self.motors[0]
+        rightMotor = self.motors[1]
         while 1:
             colors = self.getCurrentColor()
             leftColor = colors[0]
             rightColor = colors[1]
+            self.colorLog.append((leftColor, rightColor))
             print leftColor + ' : ' + rightColor
             if leftColor == 'red' or rightColor == 'red':
                 self.stop()
                 self.decisionLog.append('end')
+                elapsed = time.clock() - startTime
+                self.turnLog.append((elapsed, 'end'))
+                self.saveLog()
                 print 'goal reached'
                 return
             elif leftColor == 'white' and rightColor == 'white':
-                #self.moveOneStep()
-                self.move(self.runPower)
-                self.decisionLog.append('move')
+                preColor = self.colorLog[-2]
+                if preColor[0] == 'black' and preColor[1] == 'black':
+                    self.stop()
+                    self.moveOneStep(-1, self.runPower, 0.2)
+                    startTime = time.clock()
+                    self.decisionLog.append('back')
+                    #time.sleep(0.1)
+                else:
+                    self.move(self.runPower)
+                    self.decisionLog.append('move')
             elif leftColor == 'white' and rightColor == 'black':
                 self.stop()
-                if len(self.decisionLog) >= 2 and self.decisionLog[-1] == 'right' and self.decisionLog[-2] == 'right':      # make a huge turn at the conner
-                    self.turnRight(70)
-                    self.decisionLog.append('right')
+                if len(self.decisionLog) >= 2 and (self.decisionLog[-1] in ['right', 'turnRight'] or self.decisionLog[-2] == ['right', 'turnRight']):# and self.decisionLog[-2] == 'right':      # make a huge turn at the conner
+                    self.turnRight(self.bigTurnDegree)
+                    self.decisionLog.append('turnRight')
                     elapsed = time.clock() - startTime
                     startTime = time.clock()
-                    if elapsed > 0.1:
+                    if elapsed > self.minimumElapse:
                         self.turnLog.append((elapsed, 'turnRight'))
+                        print str(elapsed) + 'turn right at corner'
                 else:
+                    self.rightMotorStep(-1)
                     self.leftMotorStep()
                     self.decisionLog.append('right')
                 time.sleep(0.1)
             elif leftColor == 'black' and rightColor == 'white':
                 self.stop()
-                if len(self.decisionLog) >= 2 and self.decisionLog[-1] == 'left' and self.decisionLog[-2] == 'left':        # make a huge turn at the conner
-                    self.turnLeft(70)
-                    self.decisionLog.append('left')
+                if len(self.decisionLog) >= 2 and (self.decisionLog[-1] in ['left', 'turnLeft'] or self.decisionLog[-2] in ['left', 'turnLeft']): #and self.decisionLog[-2] == 'left':        # make a huge turn at the conner
+                    self.turnLeft(self.bigTurnDegree)
+                    self.decisionLog.append('turnLeft')
                     elapsed = time.clock() - startTime
                     startTime = time.clock()
-                    if elapsed > 0.1:
+                    if elapsed > self.minimumElapse:
                         self.turnLog.append((elapsed, 'turnLeft'))
+                        print  str(elapsed) + 'turn left at corner'
                 else:
+                    self.leftMotorStep(-1)
                     self.rightMotorStep()
                     self.decisionLog.append('left')
                 time.sleep(0.1)
             elif leftColor == 'black' and rightColor == 'black':
                 self.stop()
-                self.moveOneStep()
+
+                if self.decisionLog[-1] == 'move' or self.decisionLog[-1] == 'back':
+                    self.moveOneStep(-1)
+                    self.decisionLog.append('back')
+                elif self.decisionLog[-1] == 'left':
+                    self.turnLeft(self.bigTurnDegree)
+                    self.decisionLog.append('turnLeft')
+                elif self.decisionLog[-1] == 'right':
+                    self.turnRight(self.bigTurnDegree)
+                    self.decisionLog.append('turnRight')
+                time.sleep(0.1)
             else:
                 self.stop()
                 print 'condition unhandled'
                 break
             #time.sleep(0.1)                 # hold for a moment after each move
-        self.saveLog()
 
 
-    def rightMotorStep(self, direction = 1, power = 70, runTime = 0.2):
+    def rightMotorStep(self, direction = 1, power = 70, runTime = 0.1):
         scale = (1 if direction == 1 else -1)
         mRight = self.motors[1]
         mRight.run(power * scale)
@@ -126,7 +160,7 @@ class Car:
         mRight.brake()
 
 
-    def leftMotorStep(self, direction = 1, power = 70, runTime = 0.2):
+    def leftMotorStep(self, direction = 1, power = 70, runTime = 0.1):
         scale = (1 if direction == 1 else -1)
         mleft = self.motors[0]
         mleft.run(power * scale)
@@ -146,17 +180,19 @@ class Car:
         for motor in self.motors:
             motor.brake()
 
-    def turnLeft(self, degrees = 250):
+    def turnLeft(self, degrees = 0):
         leftMotor = self.motors[0]
         rightMotor = self.motors[1]
-        leftMotor.turn(-1 * self.runPower, degrees)
-        rightMotor.turn(self.runPower, degrees)
+        self.leftMotorStep(-1)
+        #leftMotor.turn(-1 * self.runPower, degrees)
+        rightMotor.turn(self.turnPower, degrees)
 
 
-    def turnRight(self, degrees = 250):
+    def turnRight(self, degrees = 0):
         leftMotor = self.motors[0]
         rightMotor = self.motors[1]
-        rightMotor.turn(-1 * self.runPower, degrees)
+        self.rightMotorStep(-1)
+        #rightMotor.turn(-1 * self.turnPower, degrees)
         leftMotor.turn(self.runPower, degrees)
 
 
@@ -169,8 +205,12 @@ class Car:
             time.sleep(runTime*scale)
             self.stop()
             print action
-            self.turnWithAxis(300, action, self.penAxis)
-            #time.sleep(1)
+            if action == 'end':
+                break
+            self.turnWithAxis(290, action, self.penAxis)            # use 320 without a pen
+
+            self.stop()
+            time.sleep(1)
         print 'draw map finished'
 
     def turnWithAxis(self, degrees, action, axis):
