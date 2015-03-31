@@ -82,7 +82,7 @@ class Car:
             leftColor = colors[0]
             rightColor = colors[1]
             self.colorLog.append((leftColor, rightColor))
-            print leftColor + ' : ' + rightColor
+            #print leftColor + ' : ' + rightColor
             if leftColor == 'red' or rightColor == 'red':
                 self.stop()
                 self.decisionLog.append('end')
